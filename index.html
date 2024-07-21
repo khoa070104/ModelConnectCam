@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Stream</title>
+</head>
+<body>
+    <video id="video" width="640" height="480" autoplay></video>
+    <script>
+        const video = document.getElementById('video');
+
+        // Request access to the camera
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+                video.srcObject = stream;
+                video.play();
+                
+                const ws = new WebSocket('ws://localhost:8000');
+
+                ws.onopen = () => {
+                    console.log('WebSocket is connected');
+                    
+                    // Capture and send frames to the server
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+
+                    function sendFrame() {
+                        if (ws.readyState === WebSocket.OPEN) {
+                            canvas.width = video.videoWidth;
+                            canvas.height = video.videoHeight;
+                            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                            const dataURL = canvas.toDataURL('image/jpeg');
+                            ws.send(dataURL);
+                        }
+                        requestAnimationFrame(sendFrame);
+                    }
+
+                    sendFrame();
+                };
+
+                ws.onclose = () => console.log('WebSocket is closed');
+                ws.onerror = err => console.error('WebSocket error:', err);
+            });
+        } else {
+            console.error('getUserMedia not supported on your browser!');
+        }
+    </script>
+</body>
+</html>
